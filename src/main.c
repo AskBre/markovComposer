@@ -48,22 +48,17 @@ int getNotePos(char *n, struct TransitionMatrix *tm) {
 
 int addNoteToMatrix(char *n, struct TransitionMatrix *tm) {
 
-	printf("Got note: %s\n", n);
 	int notePos = getNotePos(n, tm);
-	printf("Notepos is %i\n", notePos);
 
 	if(notePos >= 0) {
-		printf("Already here!\n");
 		tm->notes[notePos].count++;
 	} else {
-		printf("Adding it now\n");
 		if(tm->elements < tm->allocated) {
 			struct Note *note = &tm->notes[tm->elements];
 			note->name = n;
 			note->count = 1;
 			tm->elements++;
 		} else {
-			printf("Allocated %i and elements %i\n", tm->allocated, tm->elements);
 			fprintf(stderr, "No more room in transition matrix. Sure you've got the notes right?\n");
 			return 1;
 		}
@@ -116,7 +111,7 @@ struct TransitionMatrix getTransitionMatrix(xmlDocPtr doc) {
 
 int printTransitionMatrix(struct TransitionMatrix *tm) {
 
-	printf("\n\n\nLet's print the transition matrix!\n");
+	printf("\n\n\nThe transition matrix:\n");
 	for(int i=0; i<tm->elements; i++) {
 		struct Note note = tm->notes[i];
 		printf("Element %i:\n", i);
