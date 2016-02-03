@@ -8,13 +8,13 @@ if expand('%') == '' && !&modified && line('$') <= 1 && getline(1) == ''
   let s:wipebuf = bufnr('%')
 endif
 set shortmess=aoO
-badd +0 src/main.c
-badd +0 markovAnalyser.c
-badd +0 src/markovAnalyser.h
+badd +1 src/main.c
+badd +1 markovAnalyser.c
+badd +1 src/markovAnalyser.h
 badd +1 src/mar
-badd +0 src/markovAnalyser.c
-badd +0 Makefile
-badd +0 data/Fader_Jakob.xml
+badd +1 src/markovAnalyser.c
+badd +1 Makefile
+badd +1 data/Fader_Jakob.xml
 argglobal
 silent! argdel *
 argadd src/main.c
@@ -35,61 +35,12 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 1 - ((0 * winheight(0) + 64) / 128)
+let s:l = 6 - ((5 * winheight(0) + 49) / 98)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-1
+6
 normal! 0
-tabedit src/markovAnalyser.c
-set splitbelow splitright
-wincmd _ | wincmd |
-vsplit
-1wincmd h
-wincmd w
-set nosplitbelow
-set nosplitright
-wincmd t
-set winheight=1 winwidth=1
-exe 'vert 1resize ' . ((&columns * 98 + 98) / 196)
-exe 'vert 2resize ' . ((&columns * 97 + 98) / 196)
-argglobal
-setlocal fdm=manual
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal fen
-silent! normal! zE
-let s:l = 1 - ((0 * winheight(0) + 63) / 127)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-1
-normal! 0
-wincmd w
-argglobal
-edit src/markovAnalyser.h
-setlocal fdm=manual
-setlocal fde=0
-setlocal fmr={{{,}}}
-setlocal fdi=#
-setlocal fdl=0
-setlocal fml=1
-setlocal fdn=20
-setlocal fen
-silent! normal! zE
-let s:l = 1 - ((0 * winheight(0) + 63) / 127)
-if s:l < 1 | let s:l = 1 | endif
-exe s:l
-normal! zt
-1
-normal! 0
-wincmd w
-exe 'vert 1resize ' . ((&columns * 98 + 98) / 196)
-exe 'vert 2resize ' . ((&columns * 97 + 98) / 196)
 tabedit Makefile
 set splitbelow splitright
 set nosplitbelow
@@ -106,7 +57,7 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 4 - ((3 * winheight(0) + 64) / 128)
+let s:l = 4 - ((2 * winheight(0) + 49) / 98)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -128,7 +79,7 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 1 - ((0 * winheight(0) + 64) / 128)
+let s:l = 1 - ((0 * winheight(0) + 49) / 98)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
