@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
@@ -38,6 +40,9 @@ xmlDocPtr getDoc(char *docName) {
 	return doc;
 }
 
+//////////////////
+// Analyzation //
+////////////////
 int getNotePos(char *n, struct TransitionMatrix *tm) {
 	int notePos = -1;
 	for(int i=0; i<tm->allocated; i++){
@@ -62,6 +67,19 @@ int addNoteToMatrix(char *n, struct TransitionMatrix *tm) {
 			fprintf(stderr, "No more room in transition matrix. Sure you've got the notes right?\n");
 			return 1;
 		}
+	}
+
+	return 0;
+}
+
+int setTransitionMatricPercentage(struct TransitionMatrix *tm) {
+	unsigned allCounts = 0;
+	for(int i=0;i < tm->elements; i++) {
+		allCounts += tm->notes[i].count;
+	}
+
+	for(int i=0;i < tm->elements; i++) {
+		tm->notes[i].chance = (float)tm->notes[i].count/allCounts * 100;
 	}
 
 	return 0;
@@ -103,6 +121,8 @@ struct TransitionMatrix getTransitionMatrix(xmlDocPtr doc) {
 
 		addNoteToMatrix(xmlNoteName, &tm);
 	}
+
+	setTransitionMatricPercentage(&tm);
 	
 	xmlXPathFreeObject(notePath);
 
@@ -110,7 +130,6 @@ struct TransitionMatrix getTransitionMatrix(xmlDocPtr doc) {
 }
 
 int printTransitionMatrix(struct TransitionMatrix *tm) {
-
 	printf("\n\n\nThe transition matrix:\n");
 	for(int i=0; i<tm->elements; i++) {
 		struct Note note = tm->notes[i];
@@ -133,7 +152,7 @@ int main(int argc, char **argv) {
 	
 	struct TransitionMatrix tm = getTransitionMatrix(doc);
 
-		printTransitionMatrix(&tm);
+	printTransitionMatrix(&tm);
 
 	xmlFreeDoc(doc);
 	xmlCleanupParser();
