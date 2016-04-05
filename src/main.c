@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <linux/random.h>
 
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -72,7 +73,7 @@ int addNoteToMatrix(char *n, struct TransitionMatrix *tm) {
 	return 0;
 }
 
-int setTransitionMatricPercentage(struct TransitionMatrix *tm) {
+int setTransitionMatrixPercentage(struct TransitionMatrix *tm) {
 	unsigned allCounts = 0;
 	for(int i=0;i < tm->elements; i++) {
 		allCounts += tm->notes[i].count;
@@ -83,6 +84,13 @@ int setTransitionMatricPercentage(struct TransitionMatrix *tm) {
 	}
 
 	return 0;
+}
+
+int compareTransMat(const void * a, const void * b) {
+	struct Note *nA = (struct Note *)a;
+	struct Note *nB = (struct Note *)b;
+
+	return (nA->chance - nB->chance);
 }
 
 struct TransitionMatrix getTransitionMatrix(xmlDocPtr doc) {
@@ -122,7 +130,9 @@ struct TransitionMatrix getTransitionMatrix(xmlDocPtr doc) {
 		addNoteToMatrix(xmlNoteName, &tm);
 	}
 
-	setTransitionMatricPercentage(&tm);
+	setTransitionMatrixPercentage(&tm);
+
+	qsort(tm.notes, tm.elements, sizeof(struct Note), compareTransMat);
 	
 	xmlXPathFreeObject(notePath);
 
@@ -140,6 +150,26 @@ int printTransitionMatrix(struct TransitionMatrix *tm) {
 	return 0;
 }
 
+//////////////////
+// Production  //
+////////////////
+char *newNote(struct TransitionMatrix *tm) {
+	// An array of notes with percentages
+	char *notes[100];
+	int playhead = 0;
+	for(int i=0; i<tm->elements; i++) {
+		for(int j=0; j<tm->notes[i].chance; j++) {
+			notes[playhead] = tm->notes[i].name;
+			playhead++;
+			if(playhead>100) break;
+		}
+	}
+
+	int r = rand() % 100;
+
+	return notes[r];
+}
+
 int main(int argc, char **argv) {
 	xmlDocPtr doc = NULL;
 
@@ -153,6 +183,10 @@ int main(int argc, char **argv) {
 	struct TransitionMatrix tm = getTransitionMatrix(doc);
 
 	printTransitionMatrix(&tm);
+
+	srand(time(NULL));
+
+	for(int i=0; i<12; i++) printf("%s ", newNote(&tm));
 
 	xmlFreeDoc(doc);
 	xmlCleanupParser();
