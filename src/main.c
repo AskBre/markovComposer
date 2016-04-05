@@ -154,19 +154,20 @@ int printTransitionMatrix(struct TransitionMatrix *tm) {
 // Production  //
 ////////////////
 char *newNote(struct TransitionMatrix *tm) {
-	// An array of notes with percentages
-	char *notes[100];
+	// Make array of notes based on chance
+#define RESOLUTION 1000000
+
+	char *notes[RESOLUTION];
 	int playhead = 0;
 	for(int i=0; i<tm->elements; i++) {
-		for(int j=0; j<tm->notes[i].chance; j++) {
+		for(int j=0; j<tm->notes[i].chance * (RESOLUTION/100); j++) {
 			notes[playhead] = tm->notes[i].name;
 			playhead++;
-			if(playhead>100) break;
+			if(playhead>RESOLUTION) break;
 		}
 	}
 
-	int r = rand() % 100;
-
+	int r = rand() % RESOLUTION;
 	return notes[r];
 }
 
