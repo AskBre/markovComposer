@@ -86,13 +86,6 @@ int setTransitionMatrixPercentage(struct TransitionMatrix *tm) {
 	return 0;
 }
 
-int compareTransMat(const void * a, const void * b) {
-	struct Note *nA = (struct Note *)a;
-	struct Note *nB = (struct Note *)b;
-
-	return (nA->chance - nB->chance);
-}
-
 struct TransitionMatrix getTransitionMatrix(xmlDocPtr doc) {
 	// Setup the transition matrix
 	struct TransitionMatrix tm;
@@ -132,8 +125,6 @@ struct TransitionMatrix getTransitionMatrix(xmlDocPtr doc) {
 
 	setTransitionMatrixPercentage(&tm);
 
-	qsort(tm.notes, tm.elements, sizeof(struct Note), compareTransMat);
-	
 	xmlXPathFreeObject(notePath);
 
 	return tm;
