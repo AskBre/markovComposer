@@ -7,20 +7,7 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 
-struct Note {
-	char *name;
-	int count;
-	float chance;
-};
-
-struct TransitionMatrix {
-	struct Note *notes;
-	int elements;
-	int allocated;
-};
-
-// XML-reading
-xmlDocPtr getDoc(char *docName) {
+xmlDoc *getDoc(char *docName) {
 	xmlDocPtr doc = NULL;
 
 	doc = xmlParseFile(docName);
@@ -41,146 +28,86 @@ xmlDocPtr getDoc(char *docName) {
 	return doc;
 }
 
-//////////////////
-// Analyzation //
-////////////////
-int getNotePos(char *n, struct TransitionMatrix *tm) {
-	int notePos = -1;
-	for(int i=0; i<tm->allocated; i++){
-		if(strcmp(n, tm->notes[i].name) == 0) notePos = i;
-	}
-	return notePos;
-}
+xmlNode *getChildNode(xmlNode *parent, char *childName) {
+	xmlNode *cur = NULL;
+	xmlNode *child = NULL;
 
-int addNoteToMatrix(char *n, struct TransitionMatrix *tm) {
-
-	int notePos = getNotePos(n, tm);
-
-	if(notePos >= 0) {
-		tm->notes[notePos].count++;
-	} else {
-		if(tm->elements < tm->allocated) {
-			struct Note *note = &tm->notes[tm->elements];
-			note->name = n;
-			note->count = 1;
-			tm->elements++;
-		} else {
-			fprintf(stderr, "No more room in transition matrix. Sure you've got the notes right?\n");
-			return 1;
+	for(cur = parent->children; cur; cur = cur->next) {
+		if(xmlStrcmp(cur->name, (const xmlChar *) childName) == 0) {
+			child = cur;
 		}
 	}
 
-	return 0;
+	return child;
 }
 
-int setTransitionMatrixPercentage(struct TransitionMatrix *tm) {
-	unsigned allCounts = 0;
-	for(int i=0;i < tm->elements; i++) {
-		allCounts += tm->notes[i].count;
-	}
+// Getting of note properties
+//////////////////////////////
+char *getNoteName(xmlNode *note) {
+	xmlNode *pitch = getChildNode(note, "pitch");
+	xmlNode *step = getChildNode(pitch, "step");
 
-	for(int i=0;i < tm->elements; i++) {
-		tm->notes[i].chance = (float)tm->notes[i].count/allCounts * 100;
-	}
-
-	return 0;
+	return (char *) xmlNodeGetContent(step->xmlChildrenNode);
 }
 
-struct TransitionMatrix getTransitionMatrix(xmlDocPtr doc) {
-	// Setup the transition matrix
-	struct TransitionMatrix tm;
-	tm.allocated = 12;
-	tm.elements = 0;
-	void * _notes = malloc(tm.allocated * sizeof(struct TransitionMatrix));
+char *getNoteOctave(xmlNode *note) {
+	xmlNode *pitch = getChildNode(note, "pitch");
+	xmlNode *octave = getChildNode(pitch, "octave");
 
-	if(!_notes) {
-		fprintf(stderr,  "Couldn't allocate notes for the transition matrix");
-	}
+	return (char *) xmlNodeGetContent(octave->xmlChildrenNode);
+}
 
-	tm.notes = (struct Note *) _notes;
+//////////////////////////////
 
-	for(int i=0; i<tm.allocated; i++){
-		tm.notes[i].name = (char *) calloc(2, sizeof(char));
-	}
+int fillNotes(xmlDoc *doc, xmlNodeSet *notes) {
 
-	////////////////////
-	// Get all the notes!
-	xmlChar *keyword = (xmlChar*) "//step";
-	xmlNodeSetPtr xmlNotes;
-	xmlXPathObjectPtr notePath;
+	xmlChar *keyword = (xmlChar*) "//note";
+	xmlXPathObject *notePath;
 
 	// Set notePath
 	notePath = xmlXPathEvalExpression(keyword, xmlXPathNewContext(doc));
 
 	// Get notenames
-	xmlNotes = notePath->nodesetval;
-	int noteCount = xmlNotes->nodeNr;
+	notes = notePath->nodesetval;
 
-	for(int i=0; i< xmlNotes->nodeNr; i++) {
-		char *xmlNoteName;
-		xmlNoteName = (char *)xmlNodeListGetString(doc, xmlNotes->nodeTab[i]->xmlChildrenNode, 1);
-
-		addNoteToMatrix(xmlNoteName, &tm);
-	}
-
-	setTransitionMatrixPercentage(&tm);
-
-	xmlXPathFreeObject(notePath);
-
-	return tm;
-}
-
-int printTransitionMatrix(struct TransitionMatrix *tm) {
-	printf("\n\n\nThe transition matrix:\n");
-	for(int i=0; i<tm->elements; i++) {
-		struct Note note = tm->notes[i];
-		printf("Element %i:\n", i);
-		printf("\tName:\t%s\n\tCount:\t%i\n\tChance:\t%f\n\n", note.name, note.count, note.chance);
+	for(int i=0; i<notes->nodeNr; i++) {
+		int count = 0;
+		for(int j=0; j<notes->nodeNr; j++) {
+			if(strcmp(getNoteName(notes->nodeTab[i]), getNoteName(notes->nodeTab[j])) == 0) count++;
+		}
+		printf("Note %s has %i instances \n", getNoteName(notes->nodeTab[i]), count);
 	}
 
 	return 0;
 }
 
-//////////////////
-// Production  //
-////////////////
-char *newNote(struct TransitionMatrix *tm) {
-	// Make array of notes based on chance
-#define RESOLUTION 1000000
-
-	char *notes[RESOLUTION];
-	int playhead = 0;
-	for(int i=0; i<tm->elements; i++) {
-		for(int j=0; j<tm->notes[i].chance * (RESOLUTION/100); j++) {
-			notes[playhead] = tm->notes[i].name;
-			playhead++;
-			if(playhead>RESOLUTION) break;
-		}
-	}
-
-	int r = rand() % RESOLUTION;
-	return notes[r];
-}
-
 int main(int argc, char **argv) {
-	xmlDocPtr doc = NULL;
-
+	// Load xml-file
 	if (argc != 2) {
 		fprintf(stderr, "Need a document to operate on");
 		return 1;
 	}
 
+	xmlDoc *doc;
+	xmlNode *root;
+	xmlNodeSet *notes;
+
 	doc = getDoc(argv[1]);
-	
-	struct TransitionMatrix tm = getTransitionMatrix(doc);
 
-	printTransitionMatrix(&tm);
+	root = xmlDocGetRootElement(doc);
 
-	srand(time(NULL));
+	if(fillNotes(doc, notes)) {
+		fprintf(stderr, "Can't fill the notes");
+	}
 
-	for(int i=0; i<12; i++) printf("%s ", newNote(&tm));
 
 	xmlFreeDoc(doc);
-	xmlCleanupParser();
-	return 0;
+
+	// Get next note
+	// Check if it exists in transition matrix
+	// Fill transmat for note
+	//
+	// Get first note
+	// Put next note from transition matrix
+	// Continute ad nauseum
 }
