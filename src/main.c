@@ -17,7 +17,7 @@ xmlDoc *getDoc(char *docName) {
 		return NULL;
 	}
 
-	xmlNodePtr root_element = xmlDocGetRootElement(doc);
+	xmlNode *root_element = xmlDocGetRootElement(doc);
 
 	if(xmlStrcmp(root_element->name, (const xmlChar *) "score-partwise")) {
 		fprintf(stderr, "This doesn't seem to be a correct musixXml document");
@@ -59,26 +59,19 @@ char *getNoteOctave(xmlNode *note) {
 
 //////////////////////////////
 
-int fillNotes(xmlDoc *doc, xmlNodeSet *notes) {
+xmlNodeSet *makeNodeSet(xmlDoc *doc, char *_keyword) {
 
-	xmlChar *keyword = (xmlChar*) "//note";
+	xmlNodeSet *set;
 	xmlXPathObject *notePath;
+	xmlChar *keyword = (xmlChar *) _keyword;
 
 	// Set notePath
 	notePath = xmlXPathEvalExpression(keyword, xmlXPathNewContext(doc));
 
 	// Get notenames
-	notes = notePath->nodesetval;
+	set = notePath->nodesetval;
 
-	for(int i=0; i<notes->nodeNr; i++) {
-		int count = 0;
-		for(int j=0; j<notes->nodeNr; j++) {
-			if(strcmp(getNoteName(notes->nodeTab[i]), getNoteName(notes->nodeTab[j])) == 0) count++;
-		}
-		printf("Note %s has %i instances \n", getNoteName(notes->nodeTab[i]), count);
-	}
-
-	return 0;
+	return set;
 }
 
 int main(int argc, char **argv) {
@@ -93,13 +86,16 @@ int main(int argc, char **argv) {
 	xmlNodeSet *notes;
 
 	doc = getDoc(argv[1]);
-
 	root = xmlDocGetRootElement(doc);
+	notes = makeNodeSet(doc, "//note");
 
-	if(fillNotes(doc, notes)) {
-		fprintf(stderr, "Can't fill the notes");
+	for(int i=0; i<notes->nodeNr; i++) {
+		int count = 0;
+		for(int j=0; j<notes->nodeNr; j++) {
+			if(strcmp(getNoteName(notes->nodeTab[i]), getNoteName(notes->nodeTab[j])) == 0) count++;
+		}
+		printf("Note %s has %i instances \n", getNoteName(notes->nodeTab[i]), count);
 	}
-
 
 	xmlFreeDoc(doc);
 
