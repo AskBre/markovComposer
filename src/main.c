@@ -7,6 +7,12 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 
+struct StringArray{
+	char **strings;
+	int size;
+	int allocated;
+};
+
 // General xml parsing stuff
 //////////////////////////////
 xmlDoc *getDoc(char *docName) {
@@ -15,7 +21,7 @@ xmlDoc *getDoc(char *docName) {
 	doc = xmlParseFile(docName);
 
 	if(doc == NULL) {
-		fprintf(stderr, "error: Couldn't parse file %s\n", docName);
+		fprintf(stderr, "Couldn't parse file %s \n", docName);
 		return NULL;
 	}
 
@@ -44,6 +50,36 @@ xmlNodeSet *makeNodeSet(xmlDoc *doc, char *_keyword) {
 	if(!set) fprintf(stderr, "Couldn't make set from %s \n", (char *) keyword);
 
 	return set;
+}
+
+int isStringInArray(char *string, char **array, int arraySize) {
+	for(int i=0; i<arraySize; i++) {
+		if(strcmp(string, array[i]) == 0) {
+			printf("It's a match \n");
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+int fillUniqueStringListFromNodeSet(struct StringArray *sa, xmlNodeSet *ns) {
+	char *s1 = (char *) xmlNodeGetContent(ns->nodeTab[0]);
+
+	sa->allocated = ns->nodeNr;
+	sa->strings = malloc(sa->allocated * sizeof(s1));
+
+	for(int i=0; i<ns->nodeNr; i++) {
+		s1 = (char *) xmlNodeGetContent(ns->nodeTab[i]);
+		if(!isStringInArray(s1, sa->strings, sa->size)) {
+			printf("Putting %s \n", s1);
+			sa->strings[sa->size] = s1;	
+			sa->size++;
+			printf("Size is %i \n", sa->size);
+		}
+	}
+
+	return 0;
 }
 
 xmlNode *getChildNode(xmlNode *parent, char *childName) {
@@ -111,9 +147,11 @@ char *getNoteDuration(xmlNode *note) {
 
 int stripNotes(xmlNodeSet *notes) {
 	// Retain only the core components of note for comparison
+	// TODO Rewrite to delete all that aren't duration or pitch
 	for(int i=0; i<notes->nodeNr; i++) {
 		removeChildNode(notes->nodeTab[i], "stem");
 		removeChildNode(notes->nodeTab[i], "type");
+		removeChildNode(notes->nodeTab[i], "beam");
 	}
 
 	return 0;
@@ -130,26 +168,24 @@ int main(int argc, char **argv) {
 
 	xmlDoc *doc;
 	xmlNode *root;
-	xmlNodeSet *notes;
+	xmlNodeSet *allNotes;
 
 	doc = getDoc(argv[1]);
 	root = xmlDocGetRootElement(doc);
-	notes = makeNodeSet(doc, "//note");
+	allNotes = makeNodeSet(doc, "//note");
 
-	if(stripNotes(notes)) {
+	if(stripNotes(allNotes)) {
 		fprintf(stderr, "Couldn't strip the notes \n");
 		return 1;
 	}
 
-	for(int i=0; i<notes->nodeNr; i++) {
-		int count = 0;
-		for(int j=0; j<notes->nodeNr; j++) {
-			char *note1 = (char *) xmlNodeGetContent(notes->nodeTab[i]);
-			char *note2 = (char *) xmlNodeGetContent(notes->nodeTab[j]);
-			if(strcmp(note1, note2) == 0) count++;
-		}
+	struct StringArray *uniqueNotes;
+	uniqueNotes = malloc(sizeof(struct StringArray));
 
-		printf("Note %s %s has %i instances \n", getNoteName(notes->nodeTab[i]), getNoteDuration(notes->nodeTab[i]), count);
+	fillUniqueStringListFromNodeSet(uniqueNotes, allNotes);
+
+	for(int i=0; i<uniqueNotes->size; i++) {
+		printf("UNotes: %s \n", uniqueNotes->strings[i]);
 	}
 
 	xmlFreeDoc(doc);
