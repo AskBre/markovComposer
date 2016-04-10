@@ -55,7 +55,6 @@ xmlNodeSet *makeNodeSet(xmlDoc *doc, char *_keyword) {
 int isStringInArray(char *string, char **array, int arraySize) {
 	for(int i=0; i<arraySize; i++) {
 		if(strcmp(string, array[i]) == 0) {
-			printf("It's a match \n");
 			return 1;
 		}
 	}
@@ -72,10 +71,8 @@ int fillUniqueStringListFromNodeSet(struct StringArray *sa, xmlNodeSet *ns) {
 	for(int i=0; i<ns->nodeNr; i++) {
 		s1 = (char *) xmlNodeGetContent(ns->nodeTab[i]);
 		if(!isStringInArray(s1, sa->strings, sa->size)) {
-			printf("Putting %s \n", s1);
 			sa->strings[sa->size] = s1;	
 			sa->size++;
-			printf("Size is %i \n", sa->size);
 		}
 	}
 
@@ -173,19 +170,20 @@ int main(int argc, char **argv) {
 	doc = getDoc(argv[1]);
 	root = xmlDocGetRootElement(doc);
 	allNotes = makeNodeSet(doc, "//note");
+	printf("Made nodeset of notes with size %i \n", allNotes->nodeNr);
 
 	if(stripNotes(allNotes)) {
 		fprintf(stderr, "Couldn't strip the notes \n");
 		return 1;
 	}
+	printf("Stripped the notes \n");
 
 	struct StringArray *uniqueNotes;
 	uniqueNotes = malloc(sizeof(struct StringArray));
-
 	fillUniqueStringListFromNodeSet(uniqueNotes, allNotes);
+	printf("Made string array of unique notes with size %i \n", uniqueNotes->size);
 
 	for(int i=0; i<uniqueNotes->size; i++) {
-		printf("UNotes: %s \n", uniqueNotes->strings[i]);
 	}
 
 	xmlFreeDoc(doc);
