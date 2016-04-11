@@ -7,9 +7,11 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 
+#define RES 100
+
 struct Note {
 	char *node;
-	int nextNoteIndex[100];
+	int nextNoteIndex[RES];
 };
 
 struct Notes {
@@ -93,7 +95,12 @@ int fillUniqueNoteArrayFromNodeSet(struct Notes *notes, xmlNodeSet *ns) {
 			n->node = s1;
 			notes->size++;
 		}
+
+		for(int i=0; i<RES; i++) {
+			n->nextNoteIndex[i] = -1;
+		}
 	}
+
 
 	return 0;
 }
@@ -174,7 +181,7 @@ int stripNotes(xmlNodeSet *notes) {
 }
 //////////////////////////////
 
-int getNoteCount(char *origNote, char *wantedNote, xmlNodeSet *ns) {
+int getNextNoteCount(char *origNote, char *wantedNote, xmlNodeSet *ns) {
 	// Get count of how many wanted notes coming after original note
 	int c = 0;
 	for(int i=0; i<ns->nodeNr; i++) {
@@ -190,20 +197,33 @@ int getNoteCount(char *origNote, char *wantedNote, xmlNodeSet *ns) {
 	return c;
 }
 
+int getNoteCount(char *n1, xmlNodeSet *ns) {
+	int c = 0;
+	for(int i=0; i<ns->nodeNr; i++) {
+		char *n2 = (char *) xmlNodeGetContent(ns->nodeTab[i]);
+		if((strcmp(n1, n2) == 0)) {
+			c++;
+		}
+	}
+
+	return c;
+}
+
 int makeIndexArrayInNotes(struct Notes *notes, xmlNodeSet *allNotes) {
 	for(int i=0; i<notes->size; i++) {
 		struct Note *note = &notes->n[i];
-		printf("Filling note %s \n", note->node);
+		int playhead = 0;
 
 		for(int j=0; j<notes->size; j++) {
 			char *s = notes->n[j].node;
-			int count = getNoteCount(note->node, s, allNotes);
-			float percentage = ((float) count/(float) allNotes->nodeNr) * 100;
-			int playhead = 0;
-			printf("Percentage is %f of count %i \n", percentage, count);
+			int noteCount = getNoteCount(note->node, allNotes);
+			int count = getNextNoteCount(note->node, s, allNotes);
+			printf("Notecount is %i \t", noteCount);
+			printf("Count is %i \n", count);
+			float percentage = ((float) count/(float) noteCount) * RES;
 
 			for(int k=0; k<percentage; k++) {
-				if(playhead<100) {
+				if(playhead<RES) {
 					note->nextNoteIndex[playhead] = j;
 					playhead++;
 				} else {
@@ -247,6 +267,14 @@ int main(int argc, char **argv) {
 	printf("Made string array of unique notes with size %i \n", uniqueNotes->size);
 
 	makeIndexArrayInNotes(uniqueNotes, allNotes);
+
+	for(int n=0; n<uniqueNotes->size; n++) {
+		printf("Array of note %s \n is \n", uniqueNotes->n[n].node);
+		for(int i=0; i<RES; i++) {
+			printf("%i ", uniqueNotes->n[n].nextNoteIndex[i]);
+		}
+		printf("\n");
+	}
 
 	// Production
 	// getNext(note)
