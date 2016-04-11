@@ -7,8 +7,13 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 
-struct StringArray{
-	char **strings;
+struct Note {
+	char *node;
+	int nextNoteIndex[100];
+};
+
+struct Notes {
+	struct Note *n;
 	int size;
 	int allocated;
 };
@@ -52,9 +57,9 @@ xmlNodeSet *makeNodeSet(xmlDoc *doc, char *_keyword) {
 	return set;
 }
 
-int isStringInArray(char *string, char **array, int arraySize) {
+int isStringInNotes(char *s, struct Note *n, int arraySize) {
 	for(int i=0; i<arraySize; i++) {
-		if(strcmp(string, array[i]) == 0) {
+		if(strcmp(s, n[i].node) == 0) {
 			return 1;
 		}
 	}
@@ -62,17 +67,31 @@ int isStringInArray(char *string, char **array, int arraySize) {
 	return 0;
 }
 
-int fillUniqueStringListFromNodeSet(struct StringArray *sa, xmlNodeSet *ns) {
+int fillUniqueNoteArrayFromNodeSet(struct Notes *notes, xmlNodeSet *ns) {
 	char *s1 = (char *) xmlNodeGetContent(ns->nodeTab[0]);
 
-	sa->allocated = ns->nodeNr;
-	sa->strings = malloc(sa->allocated * sizeof(s1));
+	notes->allocated = ns->nodeNr;
+	notes->size = 0;
+	notes->n = malloc(notes->allocated * sizeof(struct Note));
+
+	if(!notes->n) {
+		fprintf(stderr, "Failed to allocate memory");
+		return 1;
+	}
 
 	for(int i=0; i<ns->nodeNr; i++) {
 		s1 = (char *) xmlNodeGetContent(ns->nodeTab[i]);
-		if(!isStringInArray(s1, sa->strings, sa->size)) {
-			sa->strings[sa->size] = s1;	
-			sa->size++;
+		struct Note *n = &notes->n[notes->size];
+
+		if(!isStringInNotes(s1, notes->n, notes->size)) {
+			n->node = malloc(sizeof(s1));
+			if(!n->node) {
+				fprintf(stderr, "Failed to allocate memory");
+				return 1;
+			}
+
+			n->node = s1;
+			notes->size++;
 		}
 	}
 
@@ -155,6 +174,47 @@ int stripNotes(xmlNodeSet *notes) {
 }
 //////////////////////////////
 
+int getNoteCount(char *origNote, char *wantedNote, xmlNodeSet *ns) {
+	// Get count of how many wanted notes coming after original note
+	int c = 0;
+	for(int i=0; i<ns->nodeNr; i++) {
+		char *curNote = (char *) xmlNodeGetContent(ns->nodeTab[i]);
+		if((strcmp(origNote, curNote) == 0) && (i+1 < ns->nodeNr)) {
+			char *nextNote = (char *) xmlNodeGetContent(ns->nodeTab[i+1]);
+			if(strcmp(wantedNote, nextNote) == 0) {
+				c++;
+			}
+		}
+	}
+
+	return c;
+}
+
+int makeIndexArrayInNotes(struct Notes *notes, xmlNodeSet *allNotes) {
+	for(int i=0; i<notes->size; i++) {
+		struct Note *note = &notes->n[i];
+		printf("Filling note %s \n", note->node);
+
+		for(int j=0; j<notes->size; j++) {
+			char *s = notes->n[j].node;
+			int count = getNoteCount(note->node, s, allNotes);
+			float percentage = ((float) count/(float) allNotes->nodeNr) * 100;
+			int playhead = 0;
+			printf("Percentage is %f of count %i \n", percentage, count);
+
+			for(int k=0; k<percentage; k++) {
+				if(playhead<100) {
+					note->nextNoteIndex[playhead] = j;
+					playhead++;
+				} else {
+					fprintf(stderr, "Playhead of %i is too big %i \n", playhead, k);
+				}
+			}
+		}
+	}
+
+	return 0;
+}
 
 int main(int argc, char **argv) {
 	// Load xml-file
@@ -167,25 +227,35 @@ int main(int argc, char **argv) {
 	xmlNode *root;
 	xmlNodeSet *allNotes;
 
+	// Get the notes from file as a set of nodes
 	doc = getDoc(argv[1]);
 	root = xmlDocGetRootElement(doc);
 	allNotes = makeNodeSet(doc, "//note");
 	printf("Made nodeset of notes with size %i \n", allNotes->nodeNr);
 
+	// Remove irrelevant parts of the notes
 	if(stripNotes(allNotes)) {
 		fprintf(stderr, "Couldn't strip the notes \n");
 		return 1;
 	}
 	printf("Stripped the notes \n");
 
-	struct StringArray *uniqueNotes;
-	uniqueNotes = malloc(sizeof(struct StringArray));
-	fillUniqueStringListFromNodeSet(uniqueNotes, allNotes);
+	// Make an array of unique notes
+	struct Notes *uniqueNotes;
+	uniqueNotes = malloc(sizeof(struct Notes));
+	fillUniqueNoteArrayFromNodeSet(uniqueNotes, allNotes);
 	printf("Made string array of unique notes with size %i \n", uniqueNotes->size);
 
-	for(int i=0; i<uniqueNotes->size; i++) {
-	}
+	makeIndexArrayInNotes(uniqueNotes, allNotes);
 
+	// Production
+	// getNext(note)
+	// Go to note in transmat
+	// Each note has one array of size 100,
+	// made based on the chance of each note,
+	// filled with numbers which are the index
+	// of the note coming next, which can be found in the
+	// array of individual notes.
 	xmlFreeDoc(doc);
 
 	// Get next note
