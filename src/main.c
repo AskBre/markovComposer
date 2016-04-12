@@ -177,7 +177,6 @@ int stripNodes(xmlNodeSet *notes) {
 	// TODO Rewrite to delete all that aren't duration or pitch
 	for(int i=0; i<notes->nodeNr; i++) {
 		removeChildNode(notes->nodeTab[i], "stem");
-		removeChildNode(notes->nodeTab[i], "type");
 		removeChildNode(notes->nodeTab[i], "beam");
 	}
 
@@ -271,6 +270,27 @@ int printNodeArray(struct MarkovNodeArray *a) {
 	return 0;
 }
 
+int removeNodesFromDoc(xmlNodeSet *nodes) {
+	for(int i=0; i<nodes->nodeNr; i++) {
+		xmlUnlinkNode(nodes->nodeTab[i]);
+		xmlFreeNode(nodes->nodeTab[i]);
+	}
+
+	return 0;
+}
+
+xmlDoc *makeNewScoreFromOld(xmlDoc *oldDoc) {
+	xmlDoc *doc = xmlCopyDoc(oldDoc, 1);
+
+	xmlNodeSet *ns;
+	ns = makeNodeSet(doc, "//note");
+	removeNodesFromDoc(ns);
+	ns = makeNodeSet(doc, "//measure");
+	removeNodesFromDoc(ns);
+	
+	return doc;
+}
+
 int main(int argc, char **argv) {
 	// Load xml-file
 	if (argc != 2) {
@@ -308,15 +328,24 @@ int main(int argc, char **argv) {
 
 //	printNodeArray(uniqueNotes);
 
+	xmlDoc *score = makeNewScoreFromOld(doc);
+	xmlNode *scoreRoot = xmlDocGetRootElement(score);
+	xmlNode *part = getChildNode(scoreRoot, "part");
+	xmlNode *measure = xmlNewChild(part, NULL, BAD_CAST "measure", NULL);
+	xmlNewProp (measure, BAD_CAST "number", BAD_CAST "1");
+	
 	int r = rand() % RES;
 	int index = uniqueNotes->n[9].nextNodeIndex[r];
 
 	while(index >= 0) {
 		printf("Note is \n %s \n", xmlNodeGetContent(uniqueNotes->n[index].node));
+		xmlAddChild(measure, uniqueNotes->n[index].node);
 		r = rand() % RES;
 		index = uniqueNotes->n[index].nextNodeIndex[r];
 	}
 
-	printf("Åsså trøkker du på DONE");
+	printf("Åsså trøkker du på DONE \n");
+	xmlSaveFormatFile("data/MarkovScore.xml", score, 1);
+	xmlFreeDoc(score);
 	xmlFreeDoc(doc);
 }
