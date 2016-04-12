@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 #include <linux/random.h>
 
 #include <libxml/parser.h>
@@ -171,7 +172,7 @@ char *getNoteDuration(xmlNode *note) {
 }
 
 
-int stripNotes(xmlNodeSet *notes) {
+int stripNodes(xmlNodeSet *notes) {
 	// Retain only the core components of note for comparison
 	// TODO Rewrite to delete all that aren't duration or pitch
 	for(int i=0; i<notes->nodeNr; i++) {
@@ -229,7 +230,7 @@ int makeIndexArrayInNodes(struct MarkovNodeArray *nodes, xmlNodeSet *allNodes) {
 			float percentage = ((float) count/(float) nodeCount) * RES;
 
 			for(int k=0; k<percentage; k++) {
-				if(playhead<RES) {
+				if(playhead < RES) {
 					node->nextNodeIndex[playhead] = j;
 					playhead++;
 				} else {
@@ -237,6 +238,34 @@ int makeIndexArrayInNodes(struct MarkovNodeArray *nodes, xmlNodeSet *allNodes) {
 				}
 			}
 		}
+	}
+
+	return 0;
+}
+
+/*
+struct MarkovNode *getNextNode(struct MarkovNode *currentNode, struct MarkovNodeArray *nodes) {
+	struct MarkovNode *nextNode;
+	printf("R is %i\n", r);
+	printf("Index is %i\n", index);
+	printf("Curnote is %s\n", xmlNodeGetContent(currentNode->node));
+
+	if(index < 0) {
+		return NULL;
+	}
+
+	printf("Nextnote is %s\n", xmlNodeGetContent(nextNode->node));
+	return nextNode;
+}
+*/
+
+int printNodeArray(struct MarkovNodeArray *a) {
+	for(int n=0; n<a->size; n++) {
+		printf("Array of note %s \n is \n", (char *) xmlNodeGetContent(a->n[n].node));
+		for(int i=0; i<RES; i++) {
+			printf("%i ", a->n[n].nextNodeIndex[i]);
+		}
+		printf("\n");
 	}
 
 	return 0;
@@ -253,6 +282,10 @@ int main(int argc, char **argv) {
 	xmlNode *root;
 	xmlNodeSet *allNotes;
 
+	struct MarkovNodeArray *uniqueNotes;
+
+	srand(time(NULL));
+
 	// Get the notes from file as a set of nodes
 	doc = getDoc(argv[1]);
 	root = xmlDocGetRootElement(doc);
@@ -260,43 +293,30 @@ int main(int argc, char **argv) {
 	printf("Made nodeset of notes with size %i \n", allNotes->nodeNr);
 
 	// Remove irrelevant parts of the notes
-	if(stripNotes(allNotes)) {
+	if(stripNodes(allNotes)) {
 		fprintf(stderr, "Couldn't strip the notes \n");
 		return 1;
 	}
 	printf("Stripped the notes \n");
 
 	// Make an array of unique notes
-	struct MarkovNodeArray *uniqueNotes;
 	uniqueNotes = malloc(sizeof(struct MarkovNodeArray));
 	fillUniqueNodeArrayFromNodeSet(uniqueNotes, allNotes);
 	printf("Made string array of unique notes with size %i \n", uniqueNotes->size);
 
 	makeIndexArrayInNodes(uniqueNotes, allNotes);
 
-	for(int n=0; n<uniqueNotes->size; n++) {
-		printf("Array of note %s \n is \n", (char *) xmlNodeGetContent(uniqueNotes->n[n].node));
-		for(int i=0; i<RES; i++) {
-			printf("%i ", uniqueNotes->n[n].nextNodeIndex[i]);
-		}
-		printf("\n");
+//	printNodeArray(uniqueNotes);
+
+	int r = rand() % RES;
+	int index = uniqueNotes->n[9].nextNodeIndex[r];
+
+	while(index >= 0) {
+		printf("Note is \n %s \n", xmlNodeGetContent(uniqueNotes->n[index].node));
+		r = rand() % RES;
+		index = uniqueNotes->n[index].nextNodeIndex[r];
 	}
 
-	// Production
-	// getNext(note)
-	// Go to note in transmat
-	// Each note has one array of size 100,
-	// made based on the chance of each note,
-	// filled with numbers which are the index
-	// of the note coming next, which can be found in the
-	// array of individual notes.
+	printf("Åsså trøkker du på DONE");
 	xmlFreeDoc(doc);
-
-	// Get next note
-	// Check if it exists in transition matrix
-	// Fill transmat for note
-	//
-	// Get first note
-	// Put next note from transition matrix
-	// Continute ad nauseum
 }

@@ -9,7 +9,7 @@ SDIR=src
 _DEPS=
 DEPS=$(patsubst %,$(SDIR)/%,$(_DEPS))
 
-LIBS=-lxml2
+LIBS=-lxml2 -lm
 
 CFLAGS=-ggdb -I$(SDIR)
 
