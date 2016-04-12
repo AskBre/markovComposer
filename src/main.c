@@ -9,13 +9,13 @@
 
 #define RES 100
 
-struct Note {
-	char *node;
-	int nextNoteIndex[RES];
+struct MarkovNode {
+	xmlNode *node;
+	int nextNodeIndex[RES];
 };
 
-struct Notes {
-	struct Note *n;
+struct MarkovNodeArray {
+	struct MarkovNode *n;
 	int size;
 	int allocated;
 };
@@ -45,23 +45,25 @@ xmlDoc *getDoc(char *docName) {
 
 xmlNodeSet *makeNodeSet(xmlDoc *doc, char *_keyword) {
 	xmlNodeSet *set;
-	xmlXPathObject *notePath;
+	xmlXPathObject *nodePath;
 	xmlChar *keyword = (xmlChar *) _keyword;
 
-	// Set notePath
-	notePath = xmlXPathEvalExpression(keyword, xmlXPathNewContext(doc));
+	// Set nodePath
+	nodePath = xmlXPathEvalExpression(keyword, xmlXPathNewContext(doc));
 
 	// Get notenames
-	set = notePath->nodesetval;
+	set = nodePath->nodesetval;
 
 	if(!set) fprintf(stderr, "Couldn't make set from %s \n", (char *) keyword);
 
 	return set;
 }
 
-int isStringInNotes(char *s, struct Note *n, int arraySize) {
+int isNodeInNodeArray(xmlNode *node, struct MarkovNode *nodes, int arraySize) {
+	char *nodeString1 = (char *) xmlNodeGetContent(node);
 	for(int i=0; i<arraySize; i++) {
-		if(strcmp(s, n[i].node) == 0) {
+		char *nodeString2 = (char *) xmlNodeGetContent(nodes[i].node);
+		if(strcmp(nodeString1, nodeString2) == 0) {
 			return 1;
 		}
 	}
@@ -69,35 +71,36 @@ int isStringInNotes(char *s, struct Note *n, int arraySize) {
 	return 0;
 }
 
-int fillUniqueNoteArrayFromNodeSet(struct Notes *notes, xmlNodeSet *ns) {
-	char *s1 = (char *) xmlNodeGetContent(ns->nodeTab[0]);
+int fillUniqueNodeArrayFromNodeSet(struct MarkovNodeArray *nodes, xmlNodeSet *nodeSet) {
+	char *nodeString = (char *) xmlNodeGetContent(nodeSet->nodeTab[0]);
 
-	notes->allocated = ns->nodeNr;
-	notes->size = 0;
-	notes->n = malloc(notes->allocated * sizeof(struct Note));
+	nodes->allocated = nodeSet->nodeNr;
+	nodes->size = 0;
+	nodes->n = malloc(nodes->allocated * sizeof(struct MarkovNode));
 
-	if(!notes->n) {
+	if(!nodes->n) {
 		fprintf(stderr, "Failed to allocate memory");
 		return 1;
 	}
 
-	for(int i=0; i<ns->nodeNr; i++) {
-		s1 = (char *) xmlNodeGetContent(ns->nodeTab[i]);
-		struct Note *n = &notes->n[notes->size];
+	for(int i=0; i<nodeSet->nodeNr; i++) {
+		xmlNode *node = nodeSet->nodeTab[i];
+		nodeString = (char *) xmlNodeGetContent(node);
+		struct MarkovNode *n = &nodes->n[nodes->size];
 
-		if(!isStringInNotes(s1, notes->n, notes->size)) {
-			n->node = malloc(sizeof(s1));
+		if(!isNodeInNodeArray(node, nodes->n, nodes->size)) {
+			n->node = malloc(sizeof(node));
 			if(!n->node) {
 				fprintf(stderr, "Failed to allocate memory");
 				return 1;
 			}
 
-			n->node = s1;
-			notes->size++;
+			n->node = node;
+			nodes->size++;
 		}
 
 		for(int i=0; i<RES; i++) {
-			n->nextNoteIndex[i] = -1;
+			n->nextNodeIndex[i] = -1;
 		}
 	}
 
@@ -181,50 +184,53 @@ int stripNotes(xmlNodeSet *notes) {
 }
 //////////////////////////////
 
-int getNextNoteCount(char *origNote, char *wantedNote, xmlNodeSet *ns) {
+int getNextNodeCount(xmlNode *origNode, xmlNode *wantedNode, xmlNodeSet *nodeSet) {
 	// Get count of how many wanted notes coming after original note
-	int c = 0;
-	for(int i=0; i<ns->nodeNr; i++) {
-		char *curNote = (char *) xmlNodeGetContent(ns->nodeTab[i]);
-		if((strcmp(origNote, curNote) == 0) && (i+1 < ns->nodeNr)) {
-			char *nextNote = (char *) xmlNodeGetContent(ns->nodeTab[i+1]);
-			if(strcmp(wantedNote, nextNote) == 0) {
-				c++;
+	int count = 0;
+	char *origNodeString = (char *) xmlNodeGetContent(origNode);
+	char *wantedNodeString = (char *) xmlNodeGetContent(wantedNode);
+
+	for(int i=0; i<nodeSet->nodeNr; i++) {
+		char *curNodeString = (char *) xmlNodeGetContent(nodeSet->nodeTab[i]);
+		if((strcmp(origNodeString, curNodeString) == 0) && (i+1 < nodeSet->nodeNr)) {
+			char *nextNodeString = (char *) xmlNodeGetContent(nodeSet->nodeTab[i+1]);
+			if(strcmp(wantedNodeString, nextNodeString) == 0) {
+				count++;
 			}
 		}
 	}
 
-	return c;
+	return count;
 }
 
-int getNoteCount(char *n1, xmlNodeSet *ns) {
-	int c = 0;
+int getNodeCount(xmlNode *node, xmlNodeSet *ns) {
+	int count = 0;
+	char *nodeString1 = (char *) xmlNodeGetContent(node);
 	for(int i=0; i<ns->nodeNr; i++) {
-		char *n2 = (char *) xmlNodeGetContent(ns->nodeTab[i]);
-		if((strcmp(n1, n2) == 0)) {
-			c++;
+		char *nodeString2 = (char *) xmlNodeGetContent(ns->nodeTab[i]);
+		if((strcmp(nodeString1, nodeString2) == 0)) {
+			count++;
 		}
 	}
 
-	return c;
+	return count;
 }
 
-int makeIndexArrayInNotes(struct Notes *notes, xmlNodeSet *allNotes) {
-	for(int i=0; i<notes->size; i++) {
-		struct Note *note = &notes->n[i];
+int makeIndexArrayInNodes(struct MarkovNodeArray *nodes, xmlNodeSet *allNodes) {
+	for(int i=0; i<nodes->size; i++) {
+		struct MarkovNode *node = &nodes->n[i];
 		int playhead = 0;
 
-		for(int j=0; j<notes->size; j++) {
-			char *s = notes->n[j].node;
-			int noteCount = getNoteCount(note->node, allNotes);
-			int count = getNextNoteCount(note->node, s, allNotes);
-			printf("Notecount is %i \t", noteCount);
-			printf("Count is %i \n", count);
-			float percentage = ((float) count/(float) noteCount) * RES;
+		for(int j=0; j<nodes->size; j++) {
+			xmlNode *curNode = nodes->n[j].node;
+			char *nodeString = (char *) xmlNodeGetContent(node->node);
+			int nodeCount = getNodeCount(node->node, allNodes);
+			int count = getNextNodeCount(node->node, curNode, allNodes);
+			float percentage = ((float) count/(float) nodeCount) * RES;
 
 			for(int k=0; k<percentage; k++) {
 				if(playhead<RES) {
-					note->nextNoteIndex[playhead] = j;
+					node->nextNodeIndex[playhead] = j;
 					playhead++;
 				} else {
 					fprintf(stderr, "Playhead of %i is too big %i \n", playhead, k);
@@ -261,17 +267,17 @@ int main(int argc, char **argv) {
 	printf("Stripped the notes \n");
 
 	// Make an array of unique notes
-	struct Notes *uniqueNotes;
-	uniqueNotes = malloc(sizeof(struct Notes));
-	fillUniqueNoteArrayFromNodeSet(uniqueNotes, allNotes);
+	struct MarkovNodeArray *uniqueNotes;
+	uniqueNotes = malloc(sizeof(struct MarkovNodeArray));
+	fillUniqueNodeArrayFromNodeSet(uniqueNotes, allNotes);
 	printf("Made string array of unique notes with size %i \n", uniqueNotes->size);
 
-	makeIndexArrayInNotes(uniqueNotes, allNotes);
+	makeIndexArrayInNodes(uniqueNotes, allNotes);
 
 	for(int n=0; n<uniqueNotes->size; n++) {
-		printf("Array of note %s \n is \n", uniqueNotes->n[n].node);
+		printf("Array of note %s \n is \n", (char *) xmlNodeGetContent(uniqueNotes->n[n].node));
 		for(int i=0; i<RES; i++) {
-			printf("%i ", uniqueNotes->n[n].nextNoteIndex[i]);
+			printf("%i ", uniqueNotes->n[n].nextNodeIndex[i]);
 		}
 		printf("\n");
 	}
