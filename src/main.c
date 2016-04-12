@@ -339,7 +339,7 @@ int main(int argc, char **argv) {
 
 	while(index >= 0) {
 		printf("Note is \n %s \n", xmlNodeGetContent(uniqueNotes->n[index].node));
-		xmlAddChild(measure, uniqueNotes->n[index].node);
+		xmlAddChild(measure, xmlCopyNode(uniqueNotes->n[index].node, 1));
 		r = rand() % RES;
 		index = uniqueNotes->n[index].nextNodeIndex[r];
 	}
