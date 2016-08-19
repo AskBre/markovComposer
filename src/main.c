@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <stdio.h> 
 #include <string.h>
 #include <time.h>
 #include <math.h>
@@ -57,6 +57,8 @@ xmlNodeSet *makeNodeSet(xmlDoc *doc, char *_keyword) {
 
 	if(!set) fprintf(stderr, "Couldn't make set from %s \n", (char *) keyword);
 
+	free(nodePath);
+
 	return set;
 }
 
@@ -67,7 +69,9 @@ int isNodeInNodeArray(xmlNode *node, struct MarkovNode *nodes, int arraySize) {
 		if(strcmp(nodeString1, nodeString2) == 0) {
 			return 1;
 		}
+		free(nodeString2);
 	}
+	free(nodeString1);
 
 	return 0;
 }
@@ -103,8 +107,10 @@ int fillUniqueNodeArrayFromNodeSet(struct MarkovNodeArray *nodes, xmlNodeSet *no
 		for(int i=0; i<RES; i++) {
 			n->nextNodeIndex[i] = -1;
 		}
+
 	}
 
+	free(nodeString);
 
 	return 0;
 }
@@ -121,6 +127,7 @@ xmlNode *getChildNode(xmlNode *parent, char *childName) {
 
 	if(!child) fprintf(stderr, "Couldn't find child %s \n", childName);
 
+	free(cur);
 	return child;
 }
 
@@ -134,6 +141,8 @@ int removeChildNode(xmlNode *parent, char *childName) {
 		}
 	}
 
+	free(cur);
+
 	if(!child) {
 		fprintf(stderr, "Couldn't find child %s \n", childName);
 		return 1;
@@ -142,7 +151,31 @@ int removeChildNode(xmlNode *parent, char *childName) {
 		xmlFreeNode(child);
 		return 0;
 	}
+
 }
+
+int removeReduntantNodes(xmlNode *parent) {
+	xmlNode *cur = NULL;
+	xmlNode *child = NULL;
+
+	for(cur = parent->children; cur; cur = cur->next) {
+		int isPitch = (xmlStrcmp(cur->name, (const xmlChar *) "pitch") == 0);
+		int isDuration = (xmlStrcmp(cur->name, (const xmlChar *) "duration") == 0);
+		int isType = (xmlStrcmp(cur->name, (const xmlChar *) "type") == 0);
+		int isNeeded = isPitch + isDuration + isType;
+
+		if(isNeeded == 0) {
+			printf("%s isn't needed \n", cur->name);
+			xmlUnlinkNode(cur);
+			xmlFreeNode(cur);
+		}
+	}
+
+	free(cur);
+
+	return 0;	
+}
+
 
 //////////////////////////////
 
@@ -152,8 +185,12 @@ char *getNoteName(xmlNode *note) {
 	xmlNode *pitch = getChildNode(note, "pitch");
 	xmlNode *step = getChildNode(pitch, "step");
 
+	free(pitch);
 	if(step) return (char *) xmlNodeGetContent(step->xmlChildrenNode);
-	else return NULL;
+	else {
+		free(step);
+		return NULL;
+	}
 }
 
 char *getNoteOctave(xmlNode *note) {
@@ -172,16 +209,18 @@ char *getNoteDuration(xmlNode *note) {
 }
 
 
+/*
 int stripNodes(xmlNodeSet *notes) {
 	// Retain only the core components of note for comparison
-	// TODO Rewrite to delete all that aren't duration or pitch
 	for(int i=0; i<notes->nodeNr; i++) {
-		removeChildNode(notes->nodeTab[i], "stem");
 		removeChildNode(notes->nodeTab[i], "beam");
+		removeChildNode(notes->nodeTab[i], "stem");
+		removeChildNode(notes->nodeTab[i], "alter");
 	}
 
 	return 0;
 }
+*/
 //////////////////////////////
 
 int getNextNodeCount(xmlNode *origNode, xmlNode *wantedNode, xmlNodeSet *nodeSet) {
@@ -200,6 +239,9 @@ int getNextNodeCount(xmlNode *origNode, xmlNode *wantedNode, xmlNodeSet *nodeSet
 		}
 	}
 
+	free(origNodeString);
+	free(wantedNodeString);
+
 	return count;
 }
 
@@ -211,7 +253,10 @@ int getNodeCount(xmlNode *node, xmlNodeSet *ns) {
 		if((strcmp(nodeString1, nodeString2) == 0)) {
 			count++;
 		}
+		free(nodeString2);
 	}
+
+	free(nodeString1);
 
 	return count;
 }
@@ -236,7 +281,10 @@ int makeIndexArrayInNodes(struct MarkovNodeArray *nodes, xmlNodeSet *allNodes) {
 					fprintf(stderr, "Playhead of %i is too big %i \n", playhead, k);
 				}
 			}
+
+			free(nodeString);
 		}
+
 	}
 
 	return 0;
@@ -279,6 +327,14 @@ int removeNodesFromDoc(xmlNodeSet *nodes) {
 	return 0;
 }
 
+int removeAttrFromNodeSet(xmlNodeSet *nodes) {
+	for(int i=0; i<nodes->nodeNr; i++) {
+		while(xmlRemoveProp(nodes->nodeTab[i]->properties) == 0);
+	}
+
+	return 0;
+}
+
 xmlDoc *makeNewScoreFromOld(xmlDoc *oldDoc) {
 	xmlDoc *doc = xmlCopyDoc(oldDoc, 1);
 
@@ -287,8 +343,36 @@ xmlDoc *makeNewScoreFromOld(xmlDoc *oldDoc) {
 	removeNodesFromDoc(ns);
 	ns = makeNodeSet(doc, "//measure");
 	removeNodesFromDoc(ns);
-	
+	free(ns);
+
 	return doc;
+}
+
+int stripNodes(xmlDoc *doc, xmlNodeSet *notes) {
+	xmlNodeSet *ns;
+	removeAttrFromNodeSet(notes);
+
+
+	ns = makeNodeSet(doc, "//stem");
+	removeNodesFromDoc(ns);
+
+	ns = makeNodeSet(doc, "//grace");
+	removeNodesFromDoc(ns);
+
+	/*
+	ns = makeNodeSet(doc, "//beam");
+	removeNodesFromDoc(ns);
+
+	ns = makeNodeSet(doc, "//alter");
+	removeNodesFromDoc(ns);
+
+	ns = makeNodeSet(doc, "//notations");
+	removeNodesFromDoc(ns);
+
+	ns = makeNodeSet(doc, "//accidental");
+	removeNodesFromDoc(ns);
+	*/
+	return 0;
 }
 
 int main(int argc, char **argv) {
@@ -313,7 +397,7 @@ int main(int argc, char **argv) {
 	printf("Made nodeset of notes with size %i \n", allNotes->nodeNr);
 
 	// Remove irrelevant parts of the notes
-	if(stripNodes(allNotes)) {
+	if(stripNodes(doc, allNotes)) {
 		fprintf(stderr, "Couldn't strip the notes \n");
 		return 1;
 	}
@@ -335,13 +419,53 @@ int main(int argc, char **argv) {
 	xmlNewProp (measure, BAD_CAST "number", BAD_CAST "1");
 	
 	int r = rand() % RES;
-	int index = uniqueNotes->n[9].nextNodeIndex[r];
+	int index = uniqueNotes->n[0].nextNodeIndex[r];
+	int beatCount = 0;
+	int measureNum = 1;
+	int count = 0;
 
-	while(index >= 0) {
-		printf("Note is \n %s \n", xmlNodeGetContent(uniqueNotes->n[index].node));
-		xmlAddChild(measure, xmlCopyNode(uniqueNotes->n[index].node, 1));
-		r = rand() % RES;
-		index = uniqueNotes->n[index].nextNodeIndex[r];
+	while(count < 5000) {
+		if(measureNum < 65) {
+			if(index >= 0) {
+				//			printf("Note is \n %s \n", xmlNodeGetContent(uniqueNotes->n[index].node));
+				//			printf("New note %i \n", index);
+
+				struct MarkovNode *newNode = &uniqueNotes->n[index];
+
+				char *beat = getNoteDuration(newNode->node);
+				if(beat) {
+					beatCount += atoi(beat);
+					//				printf("Beatcount %i \n", beatCount);
+					if(beatCount%24 == 0) {
+						//printf("New measure \n");
+						measureNum++;
+						measure = xmlNewChild(part, NULL, BAD_CAST "measure", NULL);
+						char n[10];
+						sprintf(n, "%i", measureNum);
+						xmlNewProp(measure, BAD_CAST "number",  BAD_CAST n);
+					}
+
+				} else {
+					fprintf(stderr, "Couldn't find note duration \n");
+					xmlNode *dur = xmlNewChild(newNode->node, NULL, BAD_CAST "duration", BAD_CAST "6");
+					xmlNode *voi = getChildNode(newNode->node, "voice");
+					xmlAddPrevSibling(voi, dur);
+				}
+
+				if(measureNum%46 == 0) {
+					xmlNode *newPage = xmlNewChild(measure, NULL, BAD_CAST "print", NULL);
+					xmlNewProp(newPage, BAD_CAST "new-page",  BAD_CAST "yes");
+				}
+
+				xmlAddChild(measure, xmlCopyNode(newNode->node, 1));
+
+				r = rand() % RES;
+				index = newNode->nextNodeIndex[r];
+
+				free(beat);
+			}
+		}
+		count++;
 	}
 
 	printf("Åsså trøkker du på DONE \n");

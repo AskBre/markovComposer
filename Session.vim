@@ -15,6 +15,7 @@ badd +1 src/mar
 badd +1 src/markovAnalyser.c
 badd +1 Makefile
 badd +1 data/Fader_Jakob.xml
+badd +0 data/MarkovScore.xml
 argglobal
 silent! argdel *
 argadd src/main.c
@@ -35,7 +36,7 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 6 - ((5 * winheight(0) + 49) / 98)
+let s:l = 6 - ((4 * winheight(0) + 41) / 83)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -57,7 +58,7 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 4 - ((2 * winheight(0) + 49) / 98)
+let s:l = 4 - ((2 * winheight(0) + 41) / 83)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
@@ -79,11 +80,33 @@ setlocal fml=1
 setlocal fdn=20
 setlocal fen
 silent! normal! zE
-let s:l = 1 - ((0 * winheight(0) + 49) / 98)
+let s:l = 1 - ((0 * winheight(0) + 41) / 83)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
 1
+normal! 0
+tabedit data/MarkovScore.xml
+set splitbelow splitright
+set nosplitbelow
+set nosplitright
+wincmd t
+set winheight=1 winwidth=1
+argglobal
+setlocal fdm=manual
+setlocal fde=0
+setlocal fmr={{{,}}}
+setlocal fdi=#
+setlocal fdl=0
+setlocal fml=1
+setlocal fdn=20
+setlocal fen
+silent! normal! zE
+let s:l = 13 - ((12 * winheight(0) + 41) / 83)
+if s:l < 1 | let s:l = 1 | endif
+exe s:l
+normal! zt
+13
 normal! 0
 tabnext 1
 set stal=1
